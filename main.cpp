@@ -32,7 +32,7 @@ void myIdle1(void) {//贪心和gep
 	s.car_coor();
 	s.run();
 	s.display(0);
-	Sleep(0);
+	Sleep(100);
 }
 void myIdle2(void) {//随机和差分
 	if (s.currentTime % (cycle_time) == 0) {
@@ -47,11 +47,11 @@ void myIdle2(void) {//随机和差分
 	s.car_coor();
 	s.run();
 	s.display(0);
-	Sleep(0);
+	Sleep(100);
 }
 void traffic(unsigned char key, int x, int y) {
 	if (key == 'q') {
-		glutIdleFunc(&myIdle2);
+		glutIdleFunc(&myIdle1);
 	}
 	if (key == 'p') {
 		glutIdleFunc(NULL);
@@ -115,7 +115,7 @@ int main(int argc, char* argv[]){
 	int car_cross[maxE][MAXT][2];//车辆原点和目的点
 	loadCar(car_cross, 3);
 	s.init(car_cross);
-	//gep.SLGEP(s);//gep算子，只有myidle1用到
+	gep.SLGEP(s);//gep算子，只有myidle1用到
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_SINGLE);
 	glutInitWindowPosition(0, 0);

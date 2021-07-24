@@ -28,8 +28,8 @@ int     F_2 = 5; //{and, sub, mul, div, >}
 int     F_1 = 6; //{sin, cos, exp, log, abs, floor}
 int		SFN = F_2 + F_1;		//{and, sub, mul, div, >, sin, cos, exp, log, abs, floor}
 int		generation;					//number of generations
-int		terminal_num = 8;			//current number of terminals
-int		par_num = 4;			//current number of terminals
+int		terminal_num = 16;			//current number of terminals
+const int		par_num = 4;			//current number of terminals
 int     L_constant = L_terminal + terminal_num;         //start value of constant
 int     constant_num = 1000;  
 int		function_num = (SFN + FSIZE);			//15
@@ -38,7 +38,7 @@ bool	variable_value[MAX_TERMINAL_NUM];					//input variable values
 int		gene_type_flag[NVARS];								//the type of each bit in the chromosome
 //========for stochastical analysis ===========================
 #define MAXEVALS 1000000
-#define MAXGENS	1
+#define MAXGENS	1000
 //============= nodes and tree for computing the fitness of individuals ==============================
 #define		MAX_SIBLING	20				//the maximum sibling for each node
 #define		LINK_LENFTH	(NVARS * 20)	//add enouFH to save all necessary node.
@@ -47,7 +47,7 @@ const int maxTime = 200;
 int		function = 0;		//current problem index
 int		job = 0;				//EA run index 
 #define MAXINPUTS		1000	//maximum input-output pairs of each problem
-#define	MAX_VARIABLES	10
+#define	MAX_VARIABLES	50
 #define MAXIMUM_ELEMENTS	100					//MAXIMUM_ELEMENTS > function_num && MAXIMUM_ELEMENTS > terminal_num
 class SL_GEP {
 public:
@@ -98,7 +98,7 @@ public:
 		}
 		else {
 			// First compute the left child of the node.
-			double t[4][MAXINPUTS];
+			double t[par_num][MAXINPUTS];
 			compute_sub_rule(node->siblings[0], i);
 
 			t[0][i] = sub_current_value[i];
@@ -146,19 +146,25 @@ public:
 			current_value[i] = training_inputs[i][node->value - L_terminal];
 		}
 		else {
-			double t[4][MAXINPUTS];
+			double t[par_num][MAXINPUTS];
 			compute_rule(node->siblings[0], i);
 			t[0][i] = current_value[i];
 			if (node->value < F_2) {
 				compute_rule(node->siblings[1], i);
 				t[1][i] = current_value[i];
 			}
-			if (node->value >= SFN) {
+			if (node->value >= function_num) {
 				for (int k = 1; k < 4; k++) {
 					compute_rule(node->siblings[k], i);
 					t[k][i] = current_value[i];
 				}
-			}
+			}//max考虑四个参数
+			else if (node->value >= SFN) {
+				for (int k = 1; k < par_num; k++) {
+					compute_rule(node->siblings[k], i);
+					t[k][i] = current_value[i];
+				}
+			}//GI考虑par_num个参数
 			switch (node->value) {
 			case 0: //+ 			
 				current_value[i] = t[0][i] + t[1][i]; break;
@@ -194,7 +200,7 @@ public:
 			} break;
 			default: //GI
 			{
-				for (int k = 0; k < 4; k++) {
+				for (int k = 0; k < par_num; k++) {
 					sub_sibling_value[k][i] = t[k][i];
 				}
 				compute_sub_rule(sub_root[node->value - SFN], i);
@@ -238,11 +244,16 @@ public:
 						link_comp[op].siblings[1] = &link_comp[i];
 						i++;
 					}
-					if (link_comp[op].value >= SFN) {
+					if (link_comp[op].value >= function_num) {
 						if (i >= H + T)  break;
 						for (k = 1; k < 4; k++)
 							link_comp[op].siblings[k] = &link_comp[i++];
-					}
+					}//max考虑四个参数
+					else if (link_comp[op].value >= SFN) {
+						if (i >= H + T)  break;
+						for (k = 1; k < par_num; k++)
+							link_comp[op].siblings[k] = &link_comp[i++];
+					}//GI考虑par_num个参数
 				}
 			} while (true);
 			if (op < i && i >= H + T) {
@@ -312,18 +323,21 @@ public:
 				if (s.cross[i].nextRuleTime == s.currentTime) {
 					//cout << i << endl;
 					decode_gene(p);
-					//四种相位下的车辆数量
-					training_inputs[i][0] = s.road[s.cross[i].linkroad[1]].vichle[2].size() + s.road[s.cross[i].linkroad[3]].vichle[1].size();
-					training_inputs[i][1] = s.road[s.cross[i].linkroad[1]].vichle[3].size() + s.road[s.cross[i].linkroad[3]].vichle[0].size();
-					training_inputs[i][2] = s.road[s.cross[i].linkroad[0]].vichle[0].size() + s.road[s.cross[i].linkroad[2]].vichle[3].size();
-					training_inputs[i][3] = s.road[s.cross[i].linkroad[0]].vichle[1].size() + s.road[s.cross[i].linkroad[2]].vichle[2].size();
-					training_inputs[i][4] = s.road[s.cross[i].linkroad[1]].delay[2] + s.road[s.cross[i].linkroad[3]].delay[1];
-					training_inputs[i][5] = s.road[s.cross[i].linkroad[1]].delay[3] + s.road[s.cross[i].linkroad[3]].delay[0];
-					training_inputs[i][6] = s.road[s.cross[i].linkroad[0]].delay[0] + s.road[s.cross[i].linkroad[2]].delay[3];
-					training_inputs[i][7] = s.road[s.cross[i].linkroad[0]].delay[1] + s.road[s.cross[i].linkroad[2]].delay[2];
+					training_inputs[i][0] = s.road[s.cross[i].linkroad[0]].vichle[0].size(); training_inputs[i][1] = s.road[s.cross[i].linkroad[0]].vichle[1].size();
+					training_inputs[i][2] = s.road[s.cross[i].linkroad[1]].vichle[2].size(); training_inputs[i][3] = s.road[s.cross[i].linkroad[1]].vichle[3].size();
+					training_inputs[i][4] = s.road[s.cross[i].linkroad[2]].vichle[2].size(); training_inputs[i][5] = s.road[s.cross[i].linkroad[2]].vichle[3].size();
+					training_inputs[i][6] = s.road[s.cross[i].linkroad[3]].vichle[0].size(); training_inputs[i][7] = s.road[s.cross[i].linkroad[3]].vichle[1].size();
+					//四个方向上的车流量
+					training_inputs[i][8] = s.road[s.cross[i].linkroad[0]].delay[0]; training_inputs[i][9] = s.road[s.cross[i].linkroad[0]].delay[1];
+					training_inputs[i][10] = s.road[s.cross[i].linkroad[1]].delay[2]; training_inputs[i][11] = s.road[s.cross[i].linkroad[1]].delay[3];
+					training_inputs[i][12] = s.road[s.cross[i].linkroad[2]].delay[2]; training_inputs[i][13] = s.road[s.cross[i].linkroad[2]].delay[3];
+					training_inputs[i][14] = s.road[s.cross[i].linkroad[3]].delay[0]; training_inputs[i][15] = s.road[s.cross[i].linkroad[3]].delay[1];
+					//四个方向上的堵车数量
+					training_inputs[i][16] = s.road[s.cross[i].linkroad[0]].len; training_inputs[i][17] = s.road[s.cross[i].linkroad[0]].len;
+					training_inputs[i][18] = s.road[s.cross[i].linkroad[0]].len; training_inputs[i][19] = s.road[s.cross[i].linkroad[0]].len;
 					
 					double ans = compute_rule(link_root, i);
-					//for (int j = 0; j < 8; j++) {
+					//for (int j = 0; j < 20; j++) {
 					//	cout << training_inputs[i][j] << " ";
 					//}
 					//cout << endl;
@@ -556,80 +570,93 @@ public:
 		const int preNum = 13;
 		int start0[NVARS] = {
 				function_num, SFN,SFN + 1,SFN + 2,SFN + 3,//H
-				L_terminal, L_terminal + 1,L_terminal + 2,L_terminal + 3,//G0(x0,x1,x2,x3)
-				L_terminal, L_terminal + 1,L_terminal + 2,L_terminal + 3,//G0(x0,x1,x2,x3)
-				L_terminal, L_terminal + 1,L_terminal + 2,L_terminal + 3,//G0(x0,x1,x2,x3)
-				L_terminal, L_terminal + 1,L_terminal + 2,L_terminal + 3,//G0(x0,x1,x2,x3)
+				L_terminal + 2, L_terminal + 7,L_terminal + 2,L_terminal + 3,//G0(x2,x7...)
+				L_terminal + 3, L_terminal + 6,L_terminal + 2,L_terminal + 3,//G0(x3,x6...)
+				L_terminal, L_terminal + 5,L_terminal + 2,L_terminal + 3,//G0(x0,x5...)
+				L_terminal + 1, L_terminal + 4,L_terminal + 2,L_terminal + 3,//G0(x1,x4...)
 				L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,
 				L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,//21有效
-				F_par,    F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G0 content
-				F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G1 content
-				F_par + 2,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G2 content
-				F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G3 content
+				0,F_par,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G0 content
+				0,F_par,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G1 content
+				0,F_par,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G2 content
+				0,F_par,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G3 content
 		};//贪心车流量
 		int start1[NVARS] = {
 				function_num, SFN,SFN + 1,SFN + 2,SFN + 3,//H
-				L_terminal + 4, L_terminal + 5,L_terminal + 6,L_terminal + 7,//G0(x0,x1,x2,x3)
-				L_terminal + 4, L_terminal + 5,L_terminal + 6,L_terminal + 7,//G0(x0,x1,x2,x3)
-				L_terminal + 4, L_terminal + 5,L_terminal + 6,L_terminal + 7,//G0(x0,x1,x2,x3)
-				L_terminal + 4, L_terminal + 5,L_terminal + 6,L_terminal + 7,//G0(x0,x1,x2,x3)
+				L_terminal + 10, L_terminal + 15,L_terminal + 2,L_terminal + 3,//G0(x10,x15...)
+				L_terminal + 11, L_terminal + 14,L_terminal + 2,L_terminal + 3,//G0(x11,x14...)
+				L_terminal + 8, L_terminal + 13,L_terminal + 2,L_terminal + 3,//G0(x8,x13...)
+				L_terminal + 9, L_terminal + 12,L_terminal + 2,L_terminal + 3,//G0(x9,x12...)
 				L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,
 				L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,//21有效
-				F_par,    F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G0 content
-				F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G1 content
-				F_par + 2,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G2 content
-				F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G3 content
+				0,F_par,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G0 content
+				0,F_par,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G1 content
+				0,F_par,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G2 content
+				0,F_par,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G3 content
 		};//贪心堵车数量
 		int start2[NVARS] = {
 				function_num, SFN,SFN + 1,SFN + 2,SFN + 3,//H
-				L_terminal,     L_terminal + 4,L_terminal + 4,L_terminal + 6,//G0(x0,x4,x2,x3)
-				L_terminal + 1, L_terminal + 5,L_terminal + 5,L_terminal + 7,//G1(x1,x5,x2,x3)
-				L_terminal + 2, L_terminal + 6,L_terminal + 6,L_terminal + 7,//G2(x2,x6,x2,x3)
-				L_terminal + 3, L_terminal + 7,L_terminal + 6,L_terminal + 7,//G3(x3,x7,x2,x3)
+				L_terminal + 2, L_terminal + 7,L_terminal + 10,L_terminal + 15,//G0(x2,x7,x10,x15)
+				L_terminal + 3, L_terminal + 6,L_terminal + 11,L_terminal + 14,//G1(x3,x6,x11,x14)
+				L_terminal + 0, L_terminal + 5,L_terminal + 8,L_terminal + 13,//G2(x0,x5,x8,x13)
+				L_terminal + 1, L_terminal + 4,L_terminal + 9,L_terminal + 12,//G3(x1,x4,x9,x12)
 				L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,
 				L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,//21有效
-				0, 2,F_par,L_constant + 1,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G0 content
-				0, 2,F_par,L_constant + 1,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G1 content
-				0, 2,F_par,L_constant + 1,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G2 content
-				0, 2,F_par,L_constant + 1,F_par + 1,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G3 content
+				0,0,0,    F_par, F_par + 1,F_par + 2,F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G0 content
+				0,0,0,    F_par, F_par + 1,F_par + 2,F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G1 content
+				0,0,0,    F_par, F_par + 1,F_par + 2,F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G2 content
+				0,0,0,    F_par, F_par + 1,F_par + 2,F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G3 content
 		};//综合相加
-		int start3[NVARS] = { 15, 12, 13, 1, 10, 10002, 13, 10003, 0, 10001, 10003, 10002, 10005, 10002, 10005, 10003, 10007, 10002, 10001, 10004, 10002, 10016, 10016, 10001, 10002, 10002, 10000, 10016, 10016, 10005, 10000, 10003, 10016, 10016, 10003, 10001, 10016, 10002, 10016, 10016, 10003, 10001, 10016, 10001, 10006, 10016, 10735, 20000, 20000, 20001, 20002, 20002, 20000, 10336, 20001, 10826, 20003, 20002, 20003, 10902, 10277, 20001, 8, 8, 10412, 20001, 9, 10815, 10663, 10413, 10099, 20003, 10962, 20000, 10512, 20002, 20003, 10557, 10961, 20003, 20003, 10426, 10583, 20003, 20000, 10568, 10913, 10397, 20000, 10268, 20002, 10844, 10, 20003, 9, 6, 20003, 20001, 20003, 10358, 20001, 10753, 10529, 10228, 10355, 10577 };//自测函数
+		int start3[NVARS] = {
+				function_num, SFN,SFN + 1,SFN + 2,SFN + 3,//H
+				L_terminal + 2, L_terminal + 7,L_terminal + 10,L_terminal + 15,//G0(x2,x7,x10,x15)
+				L_terminal + 3, L_terminal + 6,L_terminal + 11,L_terminal + 14,//G1(x3,x6,x11,x14)
+				L_terminal + 0, L_terminal + 5,L_terminal + 8,L_terminal + 13,//G2(x0,x5,x8,x13)
+				L_terminal + 1, L_terminal + 4,L_terminal + 9,L_terminal + 12,//G3(x1,x4,x9,x12)
+				L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,
+				L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,L_terminal,//21有效
+				0,0,0,    F_par, F_par + 1,F_par + 2,F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G0 content
+				0,0,0,    F_par, F_par + 1,F_par + 2,F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G1 content
+				0,0,0,    F_par, F_par + 1,F_par + 2,F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G2 content
+				0,0,0,    F_par, F_par + 1,F_par + 2,F_par + 3,F_par,F_par,F_par,F_par,F_par,F_par,F_par,F_par,//G3 content
+		};//综合考虑道路长度
+		int start4[NVARS] = { 15, 12, 13, 1, 10, 10002, 13, 10003, 0, 10001, 10003, 10002, 10005, 10002, 10005, 10003, 10007, 10002, 10001, 10004, 10002, 10016, 10016, 10001, 10002, 10002, 10000, 10016, 10016, 10005, 10000, 10003, 10016, 10016, 10003, 10001, 10016, 10002, 10016, 10016, 10003, 10001, 10016, 10001, 10006, 10016, 10735, 20000, 20000, 20001, 20002, 20002, 20000, 10336, 20001, 10826, 20003, 20002, 20003, 10902, 10277, 20001, 8, 8, 10412, 20001, 9, 10815, 10663, 10413, 10099, 20003, 10962, 20000, 10512, 20002, 20003, 10557, 10961, 20003, 20003, 10426, 10583, 20003, 20000, 10568, 10913, 10397, 20000, 10268, 20002, 10844, 10, 20003, 9, 6, 20003, 20001, 20003, 10358, 20001, 10753, 10529, 10228, 10355, 10577 };//自测函数
 		for (i = 0; i < POPSIZE; i++) {
 			for (k = 0; k < NVARS; k++) {
 				rand_set_value(k, &population[i].gene[k]);
 				//设置一些初始特别解
-				//if (i == 0) {
-				//	if (k < NVARS)
-				//		population[i].gene[k] = start0[k];
-				//}
-				//if (i == 1) {
-				//	if (k < NVARS)
-				//		population[i].gene[k] = start1[k];
-				//}
-				//if (i == 2) {
-				//	if (k < NVARS)
-				//		population[i].gene[k] = start2[k];
-				//}
-				if (i == 3) {
+				if (i == 0) {
 					if (k < NVARS)
-						population[i].gene[k] = start3[k];
+						population[i].gene[k] = start0[k];
 				}
+				if (i == 1) {
+					if (k < NVARS)
+						population[i].gene[k] = start1[k];
+				}
+				if (i == 2) {
+					if (k < NVARS)
+						population[i].gene[k] = start2[k];
+				}
+				//if (i == 3) {
+				//	if (k < NVARS)
+				//		population[i].gene[k] = start3[k];
+				//}
 			}
 			decode_gene(population + i);
-			//inOrderTree(link_comp);
-
+			
 			objective(&population[i], s);
 			if (population[i].f > population[ibest].f) ibest = i;
 			
-			//printf("\n");
-			//inOrderTree(sub_comp[0]);
-			//printf("\n");
-			//inOrderTree(sub_comp[1]);
-			//printf("\n");
-			//inOrderTree(sub_comp[2]);
-			//printf("\n");
-			//inOrderTree(sub_comp[3]);
-			//printf("\t%f\n", population[i].f);
+			inOrderTree(link_comp);
+			printf("\n");
+			inOrderTree(sub_comp[0]);
+			printf("\n");
+			inOrderTree(sub_comp[1]);
+			printf("\n");
+			inOrderTree(sub_comp[2]);
+			printf("\n");
+			inOrderTree(sub_comp[3]);
+			printf("\t%f\n", population[i].f * 20);
 		}
 		population[POPSIZE] = population[ibest];
 	}
@@ -715,6 +742,7 @@ public:
 			printf("x%d", x->value - L_terminal);
 		}
 	}
+	
 	void SLGEP(TrafficSystem s)
 	{
 		initialize(s);
